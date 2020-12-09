@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from torch.utils.data import TensorDataset, DataLoader
 import torch.nn.functional as F
 import torch.optim as optim
 import numpy as np
@@ -11,27 +12,27 @@ from src.trainfunctions import *
 import pickle
 
 #load data
-with open('/data/smalldata.pickle', 'rb') as f:
+with open('data/smalldata.pickle', 'rb') as f:
     dataset = pickle.load(f)
 
-with open('/data/smalldata_validation.pickle', 'rb') as f:
+with open('data/smalldata_validation.pickle', 'rb') as f:
     val_dataset = pickle.load(f)
 
-with open('/data/smalldata_outlier.pickle', 'rb') as f:
+with open('data/smalldata_outlier.pickle', 'rb') as f:
     out_dataset = pickle.load(f)
 
 x_train = dataset['data']
 x_val = val_dataset['data']
-x_out = out_dataset['data']
-outlier = out_dataset['outlier']
+x_out = torch.Tensor(out_dataset['data'])
+outlier = torch.Tensor(out_dataset['outlier'])
 
 dataset_torch = torch.utils.data.TensorDataset(x_train)
 dset_torch_val = torch.utils.data.TensorDataset(x_val)
-dset_torch_out = torch.utils.data.TensorDataset(x_out, outlier) 
+#dset_torch_out = torch.utils.data.TensorDataset(x_out, outlier) 
 batch_size = 32
 train_loader = torch.utils.data.DataLoader(dataset_torch, batch_size, shuffle=True)
 val_loader =  torch.utils.data.DataLoader(dset_torch_val, batch_size, shuffle=True)
-out_loader =  torch.utils.data.DataLoader(dset_torch_out, batch_size, shuffle=True)
+#out_loader =  torch.utils.data.DataLoader(dset_torch_out, batch_size, shuffle=True)
 
 #initialize pseudo inputs
 n_pseudo = 5
@@ -41,6 +42,9 @@ random_sample = x_train[random_idx,:,:]
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 latent_dims = [1, 2, 4, 8, 12, 25, 50, 100]
+
+output = dict()
+
 for latent_dim in latent_dims:
     epochs = 500
     model_vamp = VAE(latent_dim, input_shape = (5, 5, 10), hidden_dim = [32, 64, 64, 128], data_sample = random_sample, data_init = True, device = device, n_pseudo = n_pseudo).to(device)
@@ -49,4 +53,28 @@ for latent_dim in latent_dims:
     model_stand = VAE(latent_dim, input_shape = (5, 5, 10), hidden_dim = [32, 64, 64, 128], data_sample = random_sample, data_init = False, device = device, n_pseudo = n_pseudo).to(device)
     optimizer_stand = optim.Adam(model_stand.parameters(), lr = 1e-4)
 
-    out = train_models([model_vamp, model_stand], [optimizer_vamp, optimizer_stand], device, epochs, ['vampprior', 'standard'], train_loader)
+    models, final_loss = train_models([model_vamp, model_stand], [optimizer_vamp, optimizer_stand], device, epochs, ['vampprior', 'standard'], train_loader)
+
+    #get validation loss
+    stand_elbo = 0
+    vamp_elbo = 0
+    for i, x in enumerate(val_loader):
+        loss, recon, kl = models[0].elbo_standard(x[0].float().to(device), beta = 1, training = False, prior = 'vampprior')
+        vamp_elbo += loss.detach().cpu()
+
+        loss, recon, kl = models[1].elbo_standard(x[0].float().to(device), beta = 1, training = False, prior = 'standard')
+        stand_elbo += loss.detach().cpu()
+
+    val_stand = stand_elbo/(i+1)
+    val_vamp = vamp_elbo/(i+1)
+
+    aucs_vamp = get_outliers(models[0], x_out, 'vampprior', outlier)
+    aucs_stand = get_outliers(models[1], x_out, 'standard', outlier)
+
+    output[latent_dim] = {'validation_loss': [val_stand, val_vamp],
+                            'aucs': [aucs_stand, aucs_vamp],
+                            'final_loss': final_loss}
+
+
+with open('data/smalldata_outlier.pickle', 'wb') as f:
+    pickle.dump(output, f)

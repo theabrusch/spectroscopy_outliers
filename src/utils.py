@@ -4,6 +4,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 import numpy as np
 import pandas as pd
+from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import train_test_split
 
 
@@ -26,7 +27,7 @@ def get_grad(model, x, prior = 'vampprior'):
     model.zero_grad()
     x = x.detach()
     input = torch.autograd.Variable(x.data, requires_grad=True)
-    loss, recon, kl = model.elbo_standard(input, prior = prior)
+    loss, recon, kl, full_recon = model.elbo_standard(input, prior = prior, return_full_recon = True)
     loss.backward()
 
     elbo_grad = input.grad.detach()
@@ -44,7 +45,6 @@ def get_grad(model, x, prior = 'vampprior'):
 
     #get kl grad
     model.zero_grad()
-    x = x_train.float().to(device).detach()
     input = torch.autograd.Variable(x.data, requires_grad=True)
     loss, recon, kl = model.elbo_standard(input)
     kl.backward()
@@ -52,4 +52,14 @@ def get_grad(model, x, prior = 'vampprior'):
     kl_grad = input.grad.detach()
     model.zero_grad()
 
-    return torch.abs(elbo_grad.detach()), torch.abs(recon_grad.detach()), torch.abs(kl_grad.detach())
+    return torch.abs(elbo_grad.detach()).cpu(), torch.abs(recon_grad.detach()).cpu(), torch.abs(kl_grad.detach()).cpu(), full_recon.detach().cpu()
+
+def get_outliers(model, x, prior, outliers):
+    elbo_grad, recon_grad, kl_grad, recon = get_grad(model, x, prior = prior)
+    outliers = ((outliers>0).sum(2)>0).long().reshape(-1,1)
+    auc_elbo_grad = roc_auc_score(outliers, elbo_grad.mean(2).view(-1,1))
+    auc_recon_grad = roc_auc_score(outliers, recon_grad.mean(2).view(-1,1))
+    auc_kl_grad = roc_auc_score(outliers, kl_grad.mean(2).view(-1,1))
+    auc_recon = roc_auc_score(outliers, recon.mean(3).view(-1,1))
+
+    return auc_elbo_grad, auc_recon_grad, auc_kl_grad, auc_recon

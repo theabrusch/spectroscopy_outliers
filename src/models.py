@@ -63,7 +63,7 @@ class Encoder(nn.Module):
 
     #t, h, w = conv3d_output_shape((t,h,w), kernel_size = 2, stride = 2, padding = 0)
 
-    self.flatten = nn.Flatten(start_dim = 1)
+    #self.flatten = nn.Flatten(start_dim = 1)
     self.fc1 = nn.Linear(in_features = hidden_dim[1] * 3 * t  * h * w, out_features = self.latent_dim * 2)
 
   def forward(self, x):
@@ -73,7 +73,7 @@ class Encoder(nn.Module):
     x = self.layer1(x)
     #x = self.layer2(x)
 
-    x = self.flatten(x)
+    x = x.view(batchsize, -1)
     mu, log_std = self.fc1(x).chunk(2, dim = 1)
 
     return mu, log_std
@@ -214,14 +214,16 @@ class VAE(nn.Module):
 
     return log_prior
 
-  def elbo_standard(self, x, beta = 1, training = True, prior = 'vampprior'):
+  def elbo_standard(self, x, beta = 1, training = True, prior = 'vampprior', return_full_recon = False):
     mu_out, mu, log_std, z = self.forward(x, training = training)
     
     log_p_z = self.prior(z, prior)
     log_q_z = self.log_Normal_diag(z, mu, log_std, dim = 1)
 
     x = x.reshape(x.shape[0], *self.input_shape)
-    recon_loss = ((x - mu_out) ** 2).sum(axis=(1,2,3)).mean(axis=0)
+    recon_loss = ((x - mu_out) ** 2).sum((1,2,3)).mean(0)
+    if return_full_recon:
+      full_recon = ((x - mu_out) ** 2)
     #recon_loss = -self.log_Normal_diag(x, mu_out, sigma_out, dim = 1).mean()
     if beta > 0:
       kl_loss = -(log_p_z - log_q_z)
@@ -229,8 +231,10 @@ class VAE(nn.Module):
     else:
       kl_loss = 0
 
-
-    return recon_loss + beta * kl_loss, recon_loss, kl_loss
+    if return_full_recon:
+      return recon_loss + beta * kl_loss, recon_loss, kl_loss, full_recon
+    else:
+      return recon_loss + beta * kl_loss, recon_loss, kl_loss
 
   def get_log_prob(self, x, x_hat, x_sigma, mu, log_std, z, prior):    
     log_p_z = self.prior(z, prior)
