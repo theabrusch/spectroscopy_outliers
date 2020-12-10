@@ -35,45 +35,57 @@ val_loader =  torch.utils.data.DataLoader(dset_torch_val, batch_size, shuffle=Tr
 #out_loader =  torch.utils.data.DataLoader(dset_torch_out, batch_size, shuffle=True)
 
 #initialize pseudo inputs
-n_pseudo = 5
+n_pseudo = 10
 random_idx = np.random.choice(range(len(x_train)), size = n_pseudo, replace = False)
 random_sample = x_train[random_idx,:,:]
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-latent_dims = [1, 2, 4, 8, 12, 20, 25, 30, 40, 50, 60, 70, 80, 90, 100, 200]
+latent_dims = [1, 2, 4, 8, 12, 20, 30, 40, 50, 60, 70, 80, 90, 100, 150, 200, 250, 300]
 
 output = dict()
+runs = 4
+epochs = 1
 
 for latent_dim in latent_dims:
-    epochs = 500
-    model_vamp = VAE(latent_dim, input_shape = (5, 5, 10), hidden_dim = [32, 64, 64, 128], data_sample = random_sample, data_init = True, device = device, n_pseudo = n_pseudo).to(device)
-    optimizer_vamp = optim.Adam(model_vamp.parameters(), lr = 1e-4)
+    val_stand = np.zeros(runs)
+    val_vamp = np.zeros(runs)
+    aucs_stand = np.zeros((runs, 5))
+    aucs_vamp = np.zeros((runs, 5))
+    final_stand = np.zeros(runs)
+    final_vamp = np.zeros(runs)
 
-    model_stand = VAE(latent_dim, input_shape = (5, 5, 10), hidden_dim = [32, 64, 64, 128], data_sample = random_sample, data_init = False, device = device, n_pseudo = n_pseudo).to(device)
-    optimizer_stand = optim.Adam(model_stand.parameters(), lr = 1e-4)
+    for run in range(runs):
+        model_vamp = VAE(latent_dim, input_shape = (5, 5, 10), hidden_dim = [32, 64, 64, 128], data_sample = random_sample, data_init = True, device = device, n_pseudo = n_pseudo).to(device)
+        optimizer_vamp = optim.Adam(model_vamp.parameters(), lr = 1e-4)
 
-    models, final_loss = train_models([model_vamp, model_stand], [optimizer_vamp, optimizer_stand], device, epochs, ['vampprior', 'standard'], train_loader)
+        model_stand = VAE(latent_dim, input_shape = (5, 5, 10), hidden_dim = [32, 64, 64, 128], data_sample = random_sample, data_init = False, device = device, n_pseudo = n_pseudo).to(device)
+        optimizer_stand = optim.Adam(model_stand.parameters(), lr = 1e-4)
 
-    #get validation loss
-    stand_elbo = 0
-    vamp_elbo = 0
-    for i, x in enumerate(val_loader):
-        loss, recon, kl = models[0].elbo_standard(x[0].float().to(device), beta = 1, training = False, prior = 'vampprior')
-        vamp_elbo += loss.detach().cpu()
+        models, final_loss = train_models([model_stand, model_vamp], [optimizer_stand, optimizer_vamp], device, epochs, ['standard', 'vampprior'], train_loader)
 
-        loss, recon, kl = models[1].elbo_standard(x[0].float().to(device), beta = 1, training = False, prior = 'standard')
-        stand_elbo += loss.detach().cpu()
+        #get validation loss
+        stand_elbo = 0
+        vamp_elbo = 0
+        for i, x in enumerate(val_loader):
+            loss, recon, kl = models[0].elbo_standard(x[0].float().to(device), beta = 1, training = False, prior = 'vampprior')
+            vamp_elbo += loss.detach().cpu()
 
-    val_stand = stand_elbo/(i+1)
-    val_vamp = vamp_elbo/(i+1)
+            loss, recon, kl = models[1].elbo_standard(x[0].float().to(device), beta = 1, training = False, prior = 'standard')
+            stand_elbo += loss.detach().cpu()
 
-    aucs_vamp = get_outliers(models[0], x_out.to(device), 'vampprior', outlier)
-    aucs_stand = get_outliers(models[1], x_out.to(device), 'standard', outlier)
+        val_stand[run] = stand_elbo/(i+1)
+        val_vamp[run] = vamp_elbo/(i+1)
+        
+        final_stand[run] = final_loss[0]
+        final_vamp[run] = final_loss[1]
 
-    output[latent_dim] = {'validation_loss': [val_stand, val_vamp],
-                            'aucs': [aucs_stand, aucs_vamp],
-                            'final_loss': final_loss}
+        aucs_vamp[run,:] = get_outliers(models[0], x_out.to(device), 'vampprior', outlier)
+        aucs_stand[run,:] = get_outliers(models[1], x_out.to(device), 'standard', outlier)
+
+    output[latent_dim] = {'validation_loss': [np.mean(val_stand), np.mean(val_vamp)],
+                            'aucs': [np.mean(aucs_stand, axis=1), np.mean(aucs_vamp, axis = 1)],
+                            'final_loss': [np.mean(final_stand), np.mean(final_vamp)]}
 
 
 with open('outputs/output.pickle', 'wb') as f:

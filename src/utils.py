@@ -61,5 +61,6 @@ def get_outliers(model, x, prior, outliers):
     auc_recon_grad = roc_auc_score(outliers, recon_grad.mean(2).view(-1,1))
     auc_kl_grad = roc_auc_score(outliers, kl_grad.mean(2).view(-1,1))
     auc_recon = roc_auc_score(outliers, recon.mean(3).view(-1,1))
+    auc_combi = roc_auc_score(outliers, recon.mean(3).view(-1,1)*kl_grad.mean(2).view(-1,1))
 
-    return auc_elbo_grad, auc_recon_grad, auc_kl_grad, auc_recon
+    return auc_elbo_grad, auc_recon_grad, auc_kl_grad, auc_recon, auc_combi
