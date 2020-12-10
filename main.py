@@ -87,5 +87,5 @@ for latent_dim in latent_dims:
                             'aucs': [np.mean(aucs_stand, axis=1), np.mean(aucs_vamp, axis = 1)],
                             'final_loss': [np.mean(final_stand), np.mean(final_vamp)]}
 
-with open('outputs/output_morelatent.pickle', 'wb') as f:
+with open('outputs/output_multipleruns.pickle', 'wb') as f:
     pickle.dump(output, f)
