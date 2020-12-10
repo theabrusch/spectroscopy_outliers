@@ -45,7 +45,7 @@ latent_dims = [1, 2, 4, 8, 12, 20, 30, 40, 50, 60, 70, 80, 90, 100, 150, 200, 25
 
 output = dict()
 runs = 4
-epochs = 1
+epochs = 500
 
 for latent_dim in latent_dims:
     val_stand = np.zeros(runs)
