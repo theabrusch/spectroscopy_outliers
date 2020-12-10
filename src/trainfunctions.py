@@ -36,6 +36,7 @@ def train_models(models, optimizers, device, epochs, priors, trainloader, schedu
                 running_loss[k] += loss.detach().cpu()
                 running_recon[k] += recon.detach().cpu()
                 running_kl[k] += kl.detach().cpu()
+                k+=1
 
         for k in range(len(models)):
             loss_collect[k][epoch] = running_loss[k]/(j+1)
