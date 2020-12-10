@@ -68,8 +68,8 @@ for latent_dim in latent_dims:
     val_stand = stand_elbo/(i+1)
     val_vamp = vamp_elbo/(i+1)
 
-    aucs_vamp = get_outliers(models[0], x_out, 'vampprior', outlier)
-    aucs_stand = get_outliers(models[1], x_out, 'standard', outlier)
+    aucs_vamp = get_outliers(models[0], x_out.to(device), 'vampprior', outlier)
+    aucs_stand = get_outliers(models[1], x_out.to(device), 'standard', outlier)
 
     output[latent_dim] = {'validation_loss': [val_stand, val_vamp],
                             'aucs': [aucs_stand, aucs_vamp],
