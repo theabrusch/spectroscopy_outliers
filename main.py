@@ -76,5 +76,5 @@ for latent_dim in latent_dims:
                             'final_loss': final_loss}
 
 
-with open('outputs/output.pickle', 'wb') as f:
+with open('outputs/output_morelatent.pickle', 'wb') as f:
     pickle.dump(output, f)
