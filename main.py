@@ -41,7 +41,7 @@ random_sample = x_train[random_idx,:,:]
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-latent_dims = [1, 2, 4, 8, 12, 25, 50, 100]
+latent_dims = [1, 2, 4, 8, 12, 20, 25, 30, 40, 50, 60, 70, 80, 90, 100, 200]
 
 output = dict()
 
