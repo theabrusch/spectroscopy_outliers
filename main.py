@@ -44,7 +44,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 latent_dims = [1, 2, 4, 8, 12, 20, 30, 40, 50, 60, 70, 80, 90, 100, 150, 200, 250, 300]
 
 output = dict()
-runs = 4
+runs = 2
 epochs = 500
 
 for latent_dim in latent_dims:
@@ -68,10 +68,10 @@ for latent_dim in latent_dims:
         stand_elbo = 0
         vamp_elbo = 0
         for i, x in enumerate(val_loader):
-            loss, recon, kl = models[0].elbo_standard(x[0].float().to(device), beta = 1, training = False, prior = 'vampprior')
+            loss, recon, kl = models[1].elbo_standard(x[0].float().to(device), beta = 1, training = False, prior = 'vampprior')
             vamp_elbo += loss.detach().cpu()
 
-            loss, recon, kl = models[1].elbo_standard(x[0].float().to(device), beta = 1, training = False, prior = 'standard')
+            loss, recon, kl = models[0].elbo_standard(x[0].float().to(device), beta = 1, training = False, prior = 'standard')
             stand_elbo += loss.detach().cpu()
 
         val_stand[run] = stand_elbo/(i+1)
@@ -80,11 +80,11 @@ for latent_dim in latent_dims:
         final_stand[run] = final_loss[0]
         final_vamp[run] = final_loss[1]
 
-        aucs_vamp[run,:] = get_outliers(models[0], x_out.to(device), 'vampprior', outlier)
-        aucs_stand[run,:] = get_outliers(models[1], x_out.to(device), 'standard', outlier)
+        aucs_vamp[run,:] = get_outliers(models[1], x_out.to(device), 'vampprior', outlier)
+        aucs_stand[run,:] = get_outliers(models[0], x_out.to(device), 'standard', outlier)
 
     output[latent_dim] = {'validation_loss': [np.mean(val_stand), np.mean(val_vamp)],
-                            'aucs': [np.mean(aucs_stand, axis=1), np.mean(aucs_vamp, axis = 1)],
+                            'aucs': [aucs_stand, aucs_vamp],
                             'final_loss': [np.mean(final_stand), np.mean(final_vamp)]}
 
 with open('outputs/output_multipleruns_5p.pickle', 'wb') as f:
