@@ -12,7 +12,7 @@ from src.trainfunctions import *
 import pickle
 
 #load data
-with open('data/smalldata.pickle', 'rb') as f:
+with open('data/smalldata_5p.pickle', 'rb') as f:
     dataset = pickle.load(f)
 
 with open('data/smalldata_validation.pickle', 'rb') as f:
@@ -87,5 +87,5 @@ for latent_dim in latent_dims:
                             'aucs': [np.mean(aucs_stand, axis=1), np.mean(aucs_vamp, axis = 1)],
                             'final_loss': [np.mean(final_stand), np.mean(final_vamp)]}
 
-with open('outputs/output_multipleruns.pickle', 'wb') as f:
+with open('outputs/output_multipleruns_5p.pickle', 'wb') as f:
     pickle.dump(output, f)
