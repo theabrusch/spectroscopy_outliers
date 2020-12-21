@@ -4,6 +4,7 @@ data/*
 logs/*
 *.pickle
 *.sh
+*.pt
 # Ignore pickles
 *.pkl
 **/*.pkl
