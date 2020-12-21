@@ -84,7 +84,7 @@ for run in range(runs):
     aucs_vamp[run,:] = get_outliers(models[1], x_out.to(device), 'vampprior', outlier)
     aucs_stand[run,:] = get_outliers(models[0], x_out.to(device), 'standard', outlier)
 
-output[latent_dim] = {'validation_loss': [np.mean(val_stand), np.mean(val_vamp)],
+output = {'validation_loss': [np.mean(val_stand), np.mean(val_vamp)],
                         'aucs': [aucs_stand, aucs_vamp],
                         'final_loss': [np.mean(final_stand), np.mean(final_vamp)]}
 
